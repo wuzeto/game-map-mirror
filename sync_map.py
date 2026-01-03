@@ -1,53 +1,76 @@
 import time
 import os
-import requests
 import subprocess
+import shutil
 
 # --- 配置区 ---
-# 你的游戏地图地址
-LOCAL_URL = "http://localhost:8888"
-# 多少秒同步一次（建议不要太快，避免游戏卡顿）
-INTERVAL = 60 
+LOCAL_URL = "http://localhost:8888/"
+INTERVAL = 60
+
+
 # --- 配置结束 ---
 
-def save_page():
+def mirror_site():
+    print(f"[{time.strftime('%H:%M:%S')}] 开始克隆网页...")
+
+    # 1. 清理旧文件（防止旧文件干扰，但保留 .git 目录和脚本自己）
+    # 注意：为了安全，这里只删除 index.html 和常见的资源目录，视你实际情况而定
+    if os.path.exists("index.html"):
+        os.remove("index.html")
+    # 如果有特定的资源文件夹（如 images, js, css），建议在这里添加代码删除它们
+    # 例如: if os.path.exists("js"): shutil.rmtree("js")
+
+    # 2. 调用 wget 进行全站克隆
+    # 参数解释：
+    # -E: 将扩展名转换为 .html (如果需要)
+    # -H: 允许跨域
+    # -k: 将链接转换为本地相对链接（关键！否则传上去还会找 localhost）
+    # -K: 备份原文件
+    # -p: 下载显示页面所需的所有资源（图片、CSS、JS）
+    # -nH: 不创建主机目录
+    cmd = [
+        "wget.exe",
+        "-E", "-H", "-k", "-K", "-p", "-nH",
+        LOCAL_URL
+    ]
+
     try:
-        print(f"正在尝试获取 {LOCAL_URL} ...")
-        # 1. 下载网页内容
-        response = requests.get(LOCAL_URL)
-        response.encoding = 'utf-8' # 根据实际情况调整，如果是乱码改成 'gbk'
-        
-        # 2. 保存为 index.html
-        with open("index.html", "w", encoding="utf-8") as f:
-            f.write(response.text)
-        print("网页已保存为 index.html")
+        # 运行 wget，隐藏输出以免刷屏
+        subprocess.run(cmd, check=True, shell=True)
+        print("网页克隆完成！")
         return True
-    except Exception as e:
-        print(f"获取失败 (游戏可能未启动): {e}")
+    except subprocess.CalledProcessError:
+        print("克隆失败！(可能 wget.exe 不在当前目录，或游戏未启动)")
         return False
+
 
 def git_push():
     try:
-        # 3. 执行 Git 命令上传
         print("正在上传到 GitHub...")
         subprocess.run(["git", "add", "."], check=True)
-        # 这里的 commit message 使用时间戳
         msg = f"Auto update {time.strftime('%H:%M:%S')}"
-        subprocess.run(["git", "commit", "-m", msg], check=False) # 没变化时忽略错误
+        subprocess.run(["git", "commit", "-m", msg], check=False)
         subprocess.run(["git", "push"], check=True)
-        print(f"上传成功！最后更新时间: {time.strftime('%H:%M:%S')}")
+        print("上传成功！")
     except Exception as e:
         print(f"Git 上传失败: {e}")
 
+
 if __name__ == "__main__":
-    print("=== 游戏地图自动镜像脚本启动 ===")
-    print("功能：即使关闭游戏，GitHub 上也能看到最后一次的状态")
-    
+    # 检查 wget 是否存在
+    if not os.path.exists("wget.exe"):
+        print("错误：找不到 wget.exe！")
+        print("请下载 wget.exe 并放到此脚本的同一级目录下。")
+        input("按回车键退出...")
+        exit()
+
+    print("=== 全站镜像脚本启动 (Wget版) ===")
+
     while True:
-        if save_page():
+        if mirror_site():
             git_push()
         else:
-            print("等待游戏启动中...")
-        
-        print(f"等待 {INTERVAL} 秒后进行下一次同步...\n")
+            print("等待游戏启动...")
+
+        print(f"等待 {INTERVAL} 秒...\n")
         time.sleep(INTERVAL)
