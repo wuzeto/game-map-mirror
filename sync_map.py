@@ -4,7 +4,7 @@ import subprocess
 import shutil
 
 # --- 配置区 ---
-LOCAL_URL = "http://localhost:8888/"
+LOCAL_URL = "http://localhost:8888"
 INTERVAL = 60
 
 
